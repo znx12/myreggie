@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.core.toolkit.StringUtils;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.example.reggie_take_out.common.CommonsConst;
 import com.example.reggie_take_out.common.CustomException;
+import com.example.reggie_take_out.common.R;
 import com.example.reggie_take_out.entity.Category;
 import com.example.reggie_take_out.entity.Dish;
 import com.example.reggie_take_out.entity.DishFlavor;
@@ -17,11 +18,13 @@ import com.example.reggie_take_out.service.DishService;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 /**
@@ -34,6 +37,9 @@ import java.util.stream.Collectors;
  */
 @Service
 public class DishServiceImpl extends ServiceImpl<DishMapper, Dish> implements DishService {
+
+    @Autowired
+    private RedisTemplate redisTemplate;
 
 
     @Autowired
@@ -91,6 +97,10 @@ public class DishServiceImpl extends ServiceImpl<DishMapper, Dish> implements Di
         for(DishFlavor flavor:flavors) {
             dishFlavorMapper.insert(flavor);
         }
+
+        //清理某个分类下面的菜品缓存数据
+        String key = "dish_" + dishDTO.getCategoryId() + "_1";
+        redisTemplate.delete(key);
     }
 
     //保存菜品
@@ -105,10 +115,26 @@ public class DishServiceImpl extends ServiceImpl<DishMapper, Dish> implements Di
         for (DishFlavor flavor : flavors) {
             dishFlavorMapper.insert(flavor);
         }
+        //清理某个分类下面的菜品缓存数据
+        String key = "dish_" + dishDTO.getCategoryId() + "_1";
+        redisTemplate.delete(key);
     }
 
     @Override
     public List<DishDTO> list(Dish dish,String name) {
+
+        List<DishDTO> dishDtoList = null;
+
+        //动态构造key
+        String key = "dish_" + dish.getCategoryId() + "_" + dish.getStatus();//dish_1397844391040167938_1
+
+        //先从redis中获取缓存数据
+        dishDtoList = (List<DishDTO>) redisTemplate.opsForValue().get(key);
+
+        if (dishDtoList != null) {
+           return dishDtoList;
+        }
+
         // 构造条件
         LambdaQueryWrapper<Dish> queryWrapper = new LambdaQueryWrapper();
         queryWrapper.eq(Dish::getStatus, CommonsConst.DISH_OPEN);
@@ -122,7 +148,9 @@ public class DishServiceImpl extends ServiceImpl<DishMapper, Dish> implements Di
         // 添加排序条件
         queryWrapper.orderByAsc(Dish::getSort).orderByDesc(Dish::getUpdateTime);
         List<Dish> dishList = this.list(queryWrapper);
-        return copyList(dishList);
+        dishDtoList = copyList(dishList);
+        redisTemplate.opsForValue().set(key, dishDtoList, 60, TimeUnit.MINUTES);
+        return dishDtoList;
     }
 
     @Override
@@ -141,6 +169,12 @@ public class DishServiceImpl extends ServiceImpl<DishMapper, Dish> implements Di
         dishFlavorLambdaQueryWrapper.in(DishFlavor::getDishId, ids);
         dishFlavorMapper.delete(dishFlavorLambdaQueryWrapper);
         // 再删除菜品
+
+        Dish dish = this.getById(ids.get(0));
+        //清理某个分类下面的菜品缓存数据
+        String key = "dish_" + dish.getCategoryId() + "_1";
+        redisTemplate.delete(key);
+
         this.removeByIds(ids);
     }
 

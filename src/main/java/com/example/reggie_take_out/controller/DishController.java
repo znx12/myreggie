@@ -12,6 +12,7 @@ import com.example.reggie_take_out.service.DishService;
 import com.example.reggie_take_out.service.SetmealDishService;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -28,6 +29,9 @@ import java.util.stream.Collectors;
 @RestController
 @RequestMapping("/dish")
 public class DishController {
+
+    @Autowired
+    private RedisTemplate redisTemplate;
 
     @Autowired
     private SetmealDishService setmealDishService;
