@@ -100,6 +100,8 @@ public class DishController {
             dish.setStatus(status);
             // 修改状态
             dishService.updateById(dish);
+            String key = "dish_" + dish.getCategoryId() + "_1";
+            redisTemplate.delete(key);
         }
         return R.success("修改成功");
     }

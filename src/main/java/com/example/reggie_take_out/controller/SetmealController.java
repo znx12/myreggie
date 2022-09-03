@@ -11,6 +11,8 @@ import com.example.reggie_take_out.param.dto.SetMealDTO;
 import com.example.reggie_take_out.service.SetmealDishService;
 import com.example.reggie_take_out.service.SetmealService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -55,6 +57,7 @@ public class SetmealController {
     /**
      * 保存套餐
      */
+    @CacheEvict(value = "setmealCache", allEntries = true)
     @LogAnnotation(module = "套餐管理",operation = "保存套餐")
     @PostMapping()
     public R save(@RequestBody SetMealDTO setMealDTO){
@@ -65,6 +68,7 @@ public class SetmealController {
     /**
      * 修改套餐
      */
+    @CacheEvict(value = "setmealCache", allEntries = true)
     @LogAnnotation(module = "套餐管理", operation = "修改套餐")
     @PutMapping
     public R update(@RequestBody SetMealDTO setMealDTO){
@@ -78,6 +82,7 @@ public class SetmealController {
      * 修改套餐的销售状态
      *
      */
+    @CacheEvict(value = "setmealCache", allEntries = true)
     @PostMapping("/status/{status}")
     @LogAnnotation(module = "套餐管理", operation = "修改套餐的销售状态")
     public R updateStatus(@PathVariable Integer status,Long[] ids){
@@ -95,6 +100,7 @@ public class SetmealController {
      * @param setmeal
      * @return
      */
+    @Cacheable(value = "setmealCache", key = "#setmeal.categoryId + '_' + #setmeal.status")
     @GetMapping("/list")
     public R<List<Setmeal>> list(Setmeal setmeal) {
         // 构造查询条件
@@ -109,6 +115,7 @@ public class SetmealController {
     /**
      * 删除套餐
      */
+    @CacheEvict(value = "setmealCache", allEntries = true)
     @LogAnnotation(module = "套餐管理",operation = "删除套餐及其菜品")
     @DeleteMapping
     public R delete(@RequestParam List<Long> ids){
